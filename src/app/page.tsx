@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { plexApi, PlexJob, PlexInventory, PlexCustomerOrder, Container } from '@/lib/plex-api';
+import { mockPlexApi } from '@/lib/mock-plex-api';
+import { config } from '@/lib/config';
 import { kanbanSystem, DigitalKanban, KanbanType } from '@/lib/kanban-system';
 import ContainerManager from '@/components/ContainerManager';
 import ProductionScheduler from '@/components/ProductionScheduler';
@@ -33,11 +35,15 @@ export default function Dashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      // Use mock API if PLEX credentials are not configured
+      const api = config.features.useMockData ? mockPlexApi : plexApi;
+      
       const [jobsData, inventoryData, ordersData, containersData] = await Promise.all([
-        plexApi.getJobs(),
-        plexApi.getInventory(),
-        plexApi.getCustomerOrders(),
-        plexApi.getContainers(),
+        api.getJobs(),
+        api.getInventory(),
+        api.getCustomerOrders(),
+        api.getContainers(),
       ]);
       
       setJobs(jobsData);
@@ -115,6 +121,11 @@ export default function Dashboard() {
               <p className="text-gray-600">Digital leveling board and kanban system</p>
             </div>
             <div className="flex items-center space-x-4">
+              {config.features.useMockData && (
+                <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded-md text-sm">
+                  🔧 Using Mock Data
+                </div>
+              )}
               <button
                 onClick={loadData}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"

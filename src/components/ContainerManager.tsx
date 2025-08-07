@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Container } from '@/lib/plex-api';
 import { plexApi } from '@/lib/plex-api';
+import { mockPlexApi } from '@/lib/mock-plex-api';
 import { 
   CubeIcon, 
   ArrowPathIcon, 
@@ -39,7 +40,8 @@ export default function ContainerManager({ containers, onContainerUpdate }: Cont
 
     try {
       setIsProcessing(true);
-      await plexApi.splitContainer(container.serialNumber, splitQuantities);
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      await api.splitContainer(container.serialNumber, splitQuantities);
       setSplitQuantities([]);
       onContainerUpdate();
     } catch (error) {
@@ -58,7 +60,8 @@ export default function ContainerManager({ containers, onContainerUpdate }: Cont
 
     try {
       setIsProcessing(true);
-      await plexApi.mergeContainers(selectedContainers, mergeStrategy);
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      await api.mergeContainers(selectedContainers, mergeStrategy);
       setSelectedContainers([]);
       onContainerUpdate();
     } catch (error) {
@@ -77,8 +80,9 @@ export default function ContainerManager({ containers, onContainerUpdate }: Cont
 
     try {
       setIsProcessing(true);
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
       // Update container status to quality hold
-      await plexApi.updateInventory(container.partNumber, {
+      await api.updateInventory(container.partNumber, {
         containers: containers.map(c => 
           c.serialNumber === container.serialNumber 
             ? { ...c, status: 'quality_hold' }

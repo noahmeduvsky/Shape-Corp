@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { plexApi, PlexJob, PlexWorkCenter } from '@/lib/plex-api';
+import { mockPlexApi } from '@/lib/mock-plex-api';
 import { 
   CalendarIcon, 
   ClockIcon, 
@@ -30,9 +31,13 @@ export default function ProductionScheduler({ onJobUpdate }: ProductionScheduler
   const loadData = async () => {
     try {
       setIsLoading(true);
+      
+      // Use mock API if PLEX credentials are not configured
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      
       const [jobsData, workCentersData] = await Promise.all([
-        plexApi.getJobs(),
-        plexApi.getWorkCenters(),
+        api.getJobs(),
+        api.getWorkCenters(),
       ]);
       setJobs(jobsData);
       setWorkCenters(workCentersData);
@@ -54,7 +59,8 @@ export default function ProductionScheduler({ onJobUpdate }: ProductionScheduler
   const handlePriorityChange = async (jobId: string, newPriority: number) => {
     try {
       setIsProcessing(true);
-      await plexApi.updateJob(jobId, { priority: newPriority });
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      await api.updateJob(jobId, { priority: newPriority });
       await loadData();
       onJobUpdate();
     } catch (error) {
@@ -68,7 +74,8 @@ export default function ProductionScheduler({ onJobUpdate }: ProductionScheduler
   const handleWorkCenterChange = async (jobId: string, workCenter: string) => {
     try {
       setIsProcessing(true);
-      await plexApi.updateJob(jobId, { workCenter });
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      await api.updateJob(jobId, { workCenter });
       await loadData();
       onJobUpdate();
     } catch (error) {
@@ -82,7 +89,8 @@ export default function ProductionScheduler({ onJobUpdate }: ProductionScheduler
   const handleJobReorder = async (jobIds: string[]) => {
     try {
       setIsProcessing(true);
-      await plexApi.reorderJobs(jobIds);
+      const api = process.env.PLEX_API_URL ? plexApi : mockPlexApi;
+      await api.reorderJobs(jobIds);
       await loadData();
       onJobUpdate();
     } catch (error) {
@@ -138,7 +146,17 @@ export default function ProductionScheduler({ onJobUpdate }: ProductionScheduler
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <span className="ml-2 text-gray-600">Loading production schedule...</span>
+      </div>
+    );
+  }
+
+  // Ensure jobs and workCenters are loaded before filtering
+  if (!jobs || !workCenters) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         <span className="ml-2 text-gray-600">Loading production schedule...</span>
       </div>
     );
