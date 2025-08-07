@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the ERP system */
+@layer components {
+  .kanban-card {
+    @apply bg-white rounded-lg border-l-4 p-4 shadow-sm hover:shadow-md transition-shadow;
+  }
+  
+  .kanban-card-green {
+    @apply border-l-kanban-green;
+  }
+  
+  .kanban-card-blue-dark {
+    @apply border-l-kanban-blue-dark;
+  }
+  
+  .kanban-card-blue-light {
+    @apply border-l-kanban-blue-light;
+  }
+  
+  .kanban-card-purple {
+    @apply border-l-kanban-purple;
+  }
+  
+  .status-badge {
+    @apply px-2 py-1 rounded text-xs font-medium;
+  }
+  
+  .status-pending {
+    @apply bg-gray-100 text-gray-800;
+  }
+  
+  .status-active {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-completed {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-cancelled {
+    @apply bg-red-100 text-red-800;
+  }
+}
+
+/* Custom scrollbar for better UX */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E0 #EDF2F7;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #EDF2F7;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #CBD5E0;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #A0AEC0;
+  }
+}
