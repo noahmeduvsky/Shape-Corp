@@ -1,7 +1,7 @@
 // Digital Kanban System
 // Replaces physical cards with automated digital workflows
 
-import { plexApi } from './plex-api';
+import { getApiClient } from './config';
 import type { PlexJob, PlexInventory, PlexCustomerOrder, Container } from './plex-api';
 
 export type KanbanType = 'withdrawal' | 'production';
@@ -150,18 +150,22 @@ class DigitalKanbanSystem {
   private async processWithdrawalKanban(kanban: DigitalKanban): Promise<void> {
     try {
       // Get current inventory levels
-      const inventory = await plexApi.getInventoryByPart(kanban.partNumber);
+      const api = await getApiClient();
+      const inventory = await api.getInventoryByPart(kanban.partNumber);
       
       // Determine withdrawal type and create appropriate kanban
-      if (kanban.withdrawalType === 'end_to_tpa') {
-        // Green card equivalent - end of line stock to TPA
-        await this.createEndToTpaWithdrawal(kanban, inventory);
-      } else if (kanban.withdrawalType === 'end_to_pool') {
-        // Dark blue card equivalent - end of line stock to pool stock
-        await this.createEndToPoolWithdrawal(kanban, inventory);
-      } else if (kanban.withdrawalType === 'pool_to_tpa') {
-        // Light blue card equivalent - pool stock to TPA
-        await this.createPoolToTpaWithdrawal(kanban, inventory);
+      switch (kanban.withdrawalType) {
+        case 'end_to_tpa':
+          await this.createEndToTpaWithdrawal(kanban, inventory);
+          break;
+        case 'end_to_pool':
+          await this.createEndToPoolWithdrawal(kanban, inventory);
+          break;
+        case 'pool_to_tpa':
+          await this.createPoolToTpaWithdrawal(kanban, inventory);
+          break;
+        default:
+          throw new Error(`Unknown withdrawal type: ${kanban.withdrawalType}`);
       }
     } catch (error) {
       console.error('Error processing withdrawal kanban:', error);
@@ -172,15 +176,17 @@ class DigitalKanbanSystem {
   // Process production kanban (replaces physical production instruction cards)
   private async processProductionKanban(kanban: DigitalKanban): Promise<void> {
     try {
+      const api = await getApiClient();
+      
       // Create or update job in PLEX
       if (kanban.jobId) {
-        await plexApi.updateJob(kanban.jobId, {
+        await api.updateJob(kanban.jobId, {
           status: 'in_progress',
           priority: kanban.priority || 1,
         });
       } else {
         // Create new job
-        const job = await plexApi.createJob({
+        const job = await api.createJob({
           partNumber: kanban.partNumber,
           quantity: kanban.quantity || 0,
           completionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
@@ -217,8 +223,9 @@ class DigitalKanbanSystem {
     const containersToMove = this.selectContainersForWithdrawal(availableContainers, kanban.quantity || 0);
     
     // Update container locations
+    const api = await getApiClient();
     for (const container of containersToMove) {
-      await plexApi.updateInventory(kanban.partNumber, {
+      await api.updateInventory(kanban.partNumber, {
         containers: inventory.containers.map(c => 
           c.serialNumber === container.serialNumber 
             ? { ...c, location: 'tpa' }
@@ -247,8 +254,9 @@ class DigitalKanbanSystem {
     const containersToMove = this.selectContainersForWithdrawal(availableContainers, kanban.quantity || 0);
     
     // Update container locations
+    const api = await getApiClient();
     for (const container of containersToMove) {
-      await plexApi.updateInventory(kanban.partNumber, {
+      await api.updateInventory(kanban.partNumber, {
         containers: inventory.containers.map(c => 
           c.serialNumber === container.serialNumber 
             ? { ...c, location: 'pool_stock' }
@@ -277,8 +285,9 @@ class DigitalKanbanSystem {
     const containersToMove = this.selectContainersForWithdrawal(availableContainers, kanban.quantity || 0);
     
     // Update container locations
+    const api = await getApiClient();
     for (const container of containersToMove) {
-      await plexApi.updateInventory(kanban.partNumber, {
+      await api.updateInventory(kanban.partNumber, {
         containers: inventory.containers.map(c => 
           c.serialNumber === container.serialNumber 
             ? { ...c, location: 'tpa' }

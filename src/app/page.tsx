@@ -60,42 +60,54 @@ export default function Dashboard() {
 
   const createWithdrawalKanban = async (partNumber: string, quantity: number, withdrawalType: 'end_to_tpa' | 'end_to_pool' | 'pool_to_tpa') => {
     try {
-      const inventory = inventory.find(inv => inv.partNumber === partNumber);
-      if (!inventory) throw new Error('Part not found');
+      const inventoryItem = inventory.find(inv => inv.partNumber === partNumber);
+      if (!inventoryItem) {
+        alert(`Part number "${partNumber}" not found. Available parts: ${inventory.map(inv => inv.partNumber).join(', ')}`);
+        return;
+      }
 
       const kanban = await kanbanSystem.createKanban({
         type: 'withdrawal',
         withdrawalType,
         partNumber,
-        partDescription: inventory.partDescription,
+        partDescription: inventoryItem.partDescription,
         quantity,
+        status: 'pending',
         containerIds: [],
       });
 
       setKanbans(kanbanSystem.getKanbans());
+      alert('Withdrawal kanban created successfully!');
     } catch (error) {
       console.error('Error creating withdrawal kanban:', error);
+      alert('Failed to create withdrawal kanban. Please try again.');
     }
   };
 
   const createProductionKanban = async (partNumber: string, quantity: number, workCenter: string, priority: number) => {
     try {
-      const inventory = inventory.find(inv => inv.partNumber === partNumber);
-      if (!inventory) throw new Error('Part not found');
+      const inventoryItem = inventory.find(inv => inv.partNumber === partNumber);
+      if (!inventoryItem) {
+        alert(`Part number "${partNumber}" not found. Available parts: ${inventory.map(inv => inv.partNumber).join(', ')}`);
+        return;
+      }
 
       const kanban = await kanbanSystem.createKanban({
         type: 'production',
         partNumber,
-        partDescription: inventory.partDescription,
+        partDescription: inventoryItem.partDescription,
         quantity,
         workCenter,
         priority,
+        status: 'pending',
         containerIds: [],
       });
 
       setKanbans(kanbanSystem.getKanbans());
+      alert('Production kanban created successfully!');
     } catch (error) {
       console.error('Error creating production kanban:', error);
+      alert('Failed to create production kanban. Please try again.');
     }
   };
 
@@ -172,8 +184,8 @@ export default function Dashboard() {
           <LevelingBoard 
             jobs={jobs}
             kanbans={kanbans}
+            inventory={inventory}
             onCreateWithdrawalKanban={createWithdrawalKanban}
-            onCreateProductionKanban={createProductionKanban}
           />
         )}
         
@@ -205,176 +217,182 @@ export default function Dashboard() {
 function LevelingBoard({ 
   jobs, 
   kanbans, 
-  onCreateWithdrawalKanban, 
-  onCreateProductionKanban 
+  inventory,
+  onCreateWithdrawalKanban
 }: {
   jobs: PlexJob[];
   kanbans: DigitalKanban[];
+  inventory: PlexInventory[];
   onCreateWithdrawalKanban: (partNumber: string, quantity: number, type: 'end_to_tpa' | 'end_to_pool' | 'pool_to_tpa') => void;
-  onCreateProductionKanban: (partNumber: string, quantity: number, workCenter: string, priority: number) => void;
 }) {
   const [selectedPart, setSelectedPart] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [workCenter, setWorkCenter] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  const pendingJobs = jobs.filter(job => job.status === 'pending');
-  const activeJobs = jobs.filter(job => job.status === 'in_progress');
-  const activeKanbans = kanbans.filter(k => k.status === 'active');
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="space-y-6">
+      {/* Leveling Board Header */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Production Schedule</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Pending Jobs */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-3">Pending Jobs ({pendingJobs.length})</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Leveling Board</h2>
+          <div className="text-2xl font-mono bg-red-600 text-white px-4 py-2 rounded">
+            {currentTime.toLocaleTimeString()}
+          </div>
+        </div>
+
+        {/* Main Board Layout */}
+        <div className="grid grid-cols-12 gap-4">
+          {/* Part Numbers Section */}
+          <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">Part Numbers</h3>
             <div className="space-y-2">
-              {pendingJobs.slice(0, 5).map((job) => (
-                <div key={job.id} className="bg-white rounded border p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-sm">{job.partNumber}</p>
-                      <p className="text-xs text-gray-500">Qty: {job.quantity}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Priority: {job.priority}</p>
-                      <p className="text-xs text-gray-500">{job.workCenter}</p>
-                    </div>
-                  </div>
+              {inventory.map((item) => (
+                <div key={item.partNumber} className="bg-white p-2 rounded shadow-sm text-sm">
+                  {item.partNumber}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Active Jobs */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-3">Active Jobs ({activeJobs.length})</h3>
+          {/* Return Slots */}
+          <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">Return Slots</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-white rounded shadow-sm border-2 border-dashed border-gray-300" />
+              ))}
+            </div>
+          </div>
+
+          {/* WK Slots */}
+          <div className="col-span-4 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">WK Slots</h3>
+            <div className="grid grid-cols-6 gap-2">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-white rounded shadow-sm border-2 border-dashed border-gray-300" />
+              ))}
+            </div>
+          </div>
+
+          {/* Batch Building Box */}
+          <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">Batch Building</h3>
             <div className="space-y-2">
-              {activeJobs.slice(0, 5).map((job) => (
-                <div key={job.id} className="bg-white rounded border p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-sm">{job.partNumber}</p>
-                      <p className="text-xs text-gray-500">Qty: {job.quantity}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Priority: {job.priority}</p>
-                      <p className="text-xs text-gray-500">{job.workCenter}</p>
-                    </div>
-                  </div>
-                </div>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-24 bg-white rounded shadow-sm border-2 border-dashed border-gray-300" />
+              ))}
+            </div>
+          </div>
+
+          {/* Safety Stock Slots */}
+          <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">Safety Stock</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-white rounded shadow-sm border-2 border-dashed border-gray-300" />
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Withdrawal Kanban Creation */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Create Withdrawal Kanban */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900">Create Withdrawal Kanban</h3>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Part Number"
-                value={selectedPart}
-                onChange={(e) => setSelectedPart(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="number"
-                placeholder="Quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => onCreateWithdrawalKanban(selectedPart, parseInt(quantity), 'end_to_tpa')}
-                  className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm"
-                >
-                  End → TPA
-                </button>
-                <button
-                  onClick={() => onCreateWithdrawalKanban(selectedPart, parseInt(quantity), 'end_to_pool')}
-                  className="flex-1 bg-blue-800 text-white px-3 py-2 rounded-md hover:bg-blue-900 text-sm"
-                >
-                  End → Pool
-                </button>
-                <button
-                  onClick={() => onCreateWithdrawalKanban(selectedPart, parseInt(quantity), 'pool_to_tpa')}
-                  className="flex-1 bg-blue-400 text-white px-3 py-2 rounded-md hover:bg-blue-500 text-sm"
-                >
-                  Pool → TPA
-                </button>
-              </div>
-            </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Withdrawal Kanban</h2>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <select
+              value={selectedPart}
+              onChange={(e) => setSelectedPart(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Part Number</option>
+              {inventory.map((item) => (
+                <option key={item.partNumber} value={item.partNumber}>
+                  {item.partNumber} - {item.partDescription}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-
-          {/* Create Production Kanban */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900">Create Production Kanban</h3>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Part Number"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="number"
-                placeholder="Quantity"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Work Center"
-                value={workCenter}
-                onChange={(e) => setWorkCenter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={() => onCreateProductionKanban(selectedPart, parseInt(quantity), workCenter, 1)}
-                className="w-full bg-purple-600 text-white px-3 py-2 rounded-md hover:bg-purple-700"
-              >
-                Create Production Kanban
-              </button>
-            </div>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => {
+                if (selectedPart && quantity) {
+                  onCreateWithdrawalKanban(selectedPart, parseInt(quantity) || 0, 'end_to_tpa');
+                }
+              }}
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              EOL → TPA
+            </button>
+            <button
+              onClick={() => {
+                if (selectedPart && quantity) {
+                  onCreateWithdrawalKanban(selectedPart, parseInt(quantity) || 0, 'end_to_pool');
+                }
+              }}
+              className="flex-1 bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900"
+            >
+              EOL → Pool
+            </button>
+            <button
+              onClick={() => {
+                if (selectedPart && quantity) {
+                  onCreateWithdrawalKanban(selectedPart, parseInt(quantity) || 0, 'pool_to_tpa');
+                }
+              }}
+              className="flex-1 bg-blue-400 text-white px-4 py-2 rounded-md hover:bg-blue-500"
+            >
+              Pool → TPA
+            </button>
           </div>
         </div>
       </div>
 
       {/* Active Kanbans */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Active Kanbans ({activeKanbans.length})</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Active Withdrawal Kanbans</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {activeKanbans.map((kanban) => (
-            <div key={kanban.id} className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  kanban.type === 'withdrawal' 
-                    ? kanban.withdrawalType === 'end_to_tpa' 
+          {kanbans
+            .filter(k => k.status === 'active' && k.type === 'withdrawal')
+            .map((kanban) => (
+              <div key={kanban.id} className={`border-l-4 rounded-lg p-4 ${
+                kanban.withdrawalType === 'end_to_tpa' 
+                  ? 'border-l-green-600'
+                  : kanban.withdrawalType === 'end_to_pool'
+                  ? 'border-l-blue-800'
+                  : 'border-l-blue-400'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    kanban.withdrawalType === 'end_to_tpa'
                       ? 'bg-green-100 text-green-800'
                       : kanban.withdrawalType === 'end_to_pool'
                       ? 'bg-blue-800 text-white'
                       : 'bg-blue-400 text-white'
-                    : 'bg-purple-100 text-purple-800'
-                }`}>
-                  {kanban.type === 'withdrawal' ? 'Withdrawal' : 'Production'}
-                </span>
-                <span className="text-xs text-gray-500">{kanban.partNumber}</span>
+                  }`}>
+                    {kanban.withdrawalType ? kanban.withdrawalType.replace(/_/g, ' ').toUpperCase() : ''}
+                  </span>
+                  <span className="text-xs text-gray-500">{kanban.partNumber}</span>
+                </div>
+                <p className="text-sm font-medium">{kanban.partDescription}</p>
+                <p className="text-xs text-gray-500">Qty: {kanban.quantity}</p>
               </div>
-              <p className="text-sm font-medium">{kanban.partDescription}</p>
-              <p className="text-xs text-gray-500">Qty: {kanban.quantity}</p>
-              {kanban.workCenter && (
-                <p className="text-xs text-gray-500">WC: {kanban.workCenter}</p>
-              )}
-            </div>
           ))}
         </div>
       </div>
